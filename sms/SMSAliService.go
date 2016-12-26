@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha1"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"github.com/kkserver/kk-lib/kk/app"
@@ -19,12 +21,15 @@ import (
 
 type SMSAliService struct {
 	app.Service
+	Init *app.InitTask
 	Send *SMSSendTask
 
 	BaseURL         string
 	AccessKeyId     string
 	AccessKeySecret string
 	Sign            string
+
+	client *http.Client
 }
 
 func (S *SMSAliService) Handle(a app.IApp, task app.ITask) error {
@@ -37,6 +42,19 @@ func encodeURL(u string) string {
 	s = strings.Replace(s, "*", "%2A", 0)
 	s = strings.Replace(s, "%7E", "~", 0)
 	return s
+}
+
+func (S *SMSAliService) HandleInitTask(a *SMSApp, task *app.InitTask) error {
+
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM(pemCerts)
+	S.client = &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: pool},
+		},
+	}
+
+	return nil
 }
 
 func (S *SMSAliService) HandleSMSSendTask(a *SMSApp, task *SMSSendTask) error {
@@ -101,7 +119,7 @@ func (S *SMSAliService) HandleSMSSendTask(a *SMSApp, task *SMSSendTask) error {
 
 	log.Println(data)
 
-	resp, err := http.Post(S.BaseURL, "application/x-www-form-urlencoded", sb)
+	resp, err := S.client.Post(S.BaseURL, "application/x-www-form-urlencoded", sb)
 
 	if err != nil {
 		task.Result.Errno = ERROR_SMS
