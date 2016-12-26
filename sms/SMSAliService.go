@@ -21,6 +21,7 @@ type SMSAliService struct {
 	app.Service
 	Send *SMSSendTask
 
+	BaseURL         string
 	AccessKeyId     string
 	AccessKeySecret string
 	Sign            string
@@ -39,8 +40,6 @@ func encodeURL(u string) string {
 }
 
 func (S *SMSAliService) HandleSMSSendTask(a *SMSApp, task *SMSSendTask) error {
-
-	log.Println(S)
 
 	var data map[string]string = map[string]string{}
 
@@ -82,14 +81,10 @@ func (S *SMSAliService) HandleSMSSendTask(a *SMSApp, task *SMSSendTask) error {
 
 	sign := fmt.Sprintf("POST&%s&%s", encodeURL("/"), encodeURL(sb.String()))
 
-	log.Println(sign)
-
 	m := hmac.New(sha1.New, []byte(fmt.Sprintf("%s&", S.AccessKeySecret)))
 	m.Write([]byte(sign))
 
 	sign = base64.StdEncoding.EncodeToString(m.Sum(nil))
-
-	log.Println(sign)
 
 	sb = bytes.NewBuffer(nil)
 
@@ -104,11 +99,9 @@ func (S *SMSAliService) HandleSMSSendTask(a *SMSApp, task *SMSSendTask) error {
 		sb.WriteString(encodeURL(data[key]))
 	}
 
-	log.Println(sb.String())
-
 	log.Println(data)
 
-	resp, err := http.Post("https://sms.aliyuncs.com/", "application/x-www-form-urlencoded", sb)
+	resp, err := http.Post(S.BaseURL, "application/x-www-form-urlencoded", sb)
 
 	if err != nil {
 		task.Result.Errno = ERROR_SMS
