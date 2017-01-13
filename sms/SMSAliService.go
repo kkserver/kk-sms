@@ -22,7 +22,6 @@ import (
 type SMSAliService struct {
 	app.Service
 	Init *app.InitTask
-	Send *SMSSendTask
 
 	BaseURL         string
 	AccessKeyId     string
@@ -129,6 +128,7 @@ func (S *SMSAliService) HandleSMSSendTask(a *SMSApp, task *SMSSendTask) error {
 		_, _ = resp.Body.Read(body)
 		defer resp.Body.Close()
 		log.Println(string(body))
+		resp.Close()
 	} else {
 		var body = make([]byte, resp.ContentLength)
 		_, _ = resp.Body.Read(body)
@@ -136,6 +136,7 @@ func (S *SMSAliService) HandleSMSSendTask(a *SMSApp, task *SMSSendTask) error {
 		log.Println(string(body))
 		task.Result.Errno = ERROR_SMS
 		task.Result.Errmsg = fmt.Sprintf("[%d] %s", resp.StatusCode, string(body))
+		resp.Close()
 	}
 
 	return nil
