@@ -28,7 +28,7 @@ type SMSAliService struct {
 	AccessKeySecret string
 	Sign            string
 
-	client *http.Client
+	ca *x509.CertPool
 }
 
 func (S *SMSAliService) Handle(a app.IApp, task app.ITask) error {
@@ -45,13 +45,8 @@ func encodeURL(u string) string {
 
 func (S *SMSAliService) HandleInitTask(a *SMSApp, task *app.InitTask) error {
 
-	pool := x509.NewCertPool()
-	pool.AppendCertsFromPEM(pemCerts)
-	S.client = &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{RootCAs: pool},
-		},
-	}
+	S.ca = x509.NewCertPool()
+	S.ca.AppendCertsFromPEM(pemCerts)
 
 	return nil
 }
@@ -118,7 +113,13 @@ func (S *SMSAliService) HandleSMSSendTask(a *SMSApp, task *SMSSendTask) error {
 
 	log.Println(data)
 
-	resp, err := S.client.Post(S.BaseURL, "application/x-www-form-urlencoded", sb)
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: S.ca},
+		},
+	}
+
+	resp, err := client.Post(S.BaseURL, "application/x-www-form-urlencoded", sb)
 
 	if err != nil {
 		task.Result.Errno = ERROR_SMS
@@ -128,7 +129,6 @@ func (S *SMSAliService) HandleSMSSendTask(a *SMSApp, task *SMSSendTask) error {
 		_, _ = resp.Body.Read(body)
 		defer resp.Body.Close()
 		log.Println(string(body))
-		resp.Close()
 	} else {
 		var body = make([]byte, resp.ContentLength)
 		_, _ = resp.Body.Read(body)
@@ -136,7 +136,6 @@ func (S *SMSAliService) HandleSMSSendTask(a *SMSApp, task *SMSSendTask) error {
 		log.Println(string(body))
 		task.Result.Errno = ERROR_SMS
 		task.Result.Errmsg = fmt.Sprintf("[%d] %s", resp.StatusCode, string(body))
-		resp.Close()
 	}
 
 	return nil
