@@ -135,7 +135,7 @@ func (S *SMSAliService) HandleSMSSendTask(a *SMSApp, task *SMSSendTask) error {
 		defer resp.Body.Close()
 		log.Println(string(body))
 		task.Result.Errno = ERROR_SMS
-		task.Result.Errmsg = fmt.Sprintf("[%d] %s", resp.StatusCode, resp.Status)
+		task.Result.Errmsg = fmt.Sprintf("[%d] %s", resp.StatusCode, string(body))
 	}
 
 	return nil
